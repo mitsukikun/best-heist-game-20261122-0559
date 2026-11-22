@@ -20,7 +20,8 @@ the getaway van before the alarm hits lockdown.
   building locks down and Wren loses a life (3 lives).
 - **Shadows hide you** (and block sight). **Shift** sneaks silently; walking
   is loud and heard. **Click** tosses a coin that pulls guards over to
-  investigate.
+  investigate. **E** drops a smoke cloud ($50 of score, 2 per floor) that
+  blinds every guard cone and camera while it hangs.
 - **Loot with dollar values** (painting $100, gold $150, gem $200, the Crown
   $500). **Score:** dollars stolen, plus level-clear, time and ghost bonuses.
   Procedural WebAudio sounds only (no audio files). Best score kept in
@@ -37,9 +38,11 @@ node serve.ts        # then open http://localhost:8080
 Deterministic staged scenes, produced by the game's own code stepping itself
 with an autopilot (`game/src/shots.js`):
 
-- `screenshots/1-start.jpg` — title screen over the live floor
+- `screenshots/1-start.jpg` — the cover: 8 seconds into a real run — thief
+  mid-room, loot pocketed, guard cone sweeping, camera watching, alarm alive
 - `screenshots/2-play.jpg` — mid-play: loot pocketed, guard cone, camera cone, laser beam, alarm meter
-- `screenshots/3-end.jpg` — floor-clear panel
+- `screenshots/3-chase.jpg` — a guard onto the thief (suspicious/chasing) with the alarm climbing
+- `screenshots/4-end.jpg` — floor-clear panel
 
 ---
 

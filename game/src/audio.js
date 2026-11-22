@@ -60,6 +60,33 @@ export function soundCoin() {
   tone(2637, 0.14, 'triangle', 0.12, 0.05);
 }
 
+/** A smoke cloud blooming: filtered noise that swells and fades away. */
+export function soundSmoke() {
+  const ctx = ensure();
+  if (!ctx || muted) return;
+  try {
+    const dur = 0.5;
+    const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i += 1) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(900, ctx.currentTime);
+    filter.frequency.exponentialRampToValueAtTime(220, ctx.currentTime + dur);
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.22, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+    source.start();
+  } catch {
+    // Audio is decoration: a failure here never breaks the game.
+  }
+}
+
 /** Pocketing loot: a soft two-note blip that rises with the loot's value. */
 export function soundPickup(value) {
   const base = 520 + Math.min(400, value);

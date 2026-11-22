@@ -3,9 +3,10 @@
 // paints what is there. The game moves between six screens: title, play, paused,
 // floor-clear, game over and win.
 //
-// ?seed=N fixes the random seed. ?shot=start|play|end (with &seed=N) stages that
-// scene instead of running the loop, paints it twice and sets window.__shotReady
-// for a screenshot. window.__velvet exposes the world and input for playtests.
+// ?seed=N fixes the random seed. ?shot=start|play|chase|end (with &seed=N)
+// stages that scene instead of running the loop, paints it twice and sets
+// window.__shotReady for a screenshot. window.__velvet exposes the world and
+// input for playtests.
 import { BEST_KEY, LIVES, STEP } from './config.js';
 import { createRandom } from './random.js';
 import {
@@ -18,6 +19,7 @@ import {
   EVENT_LOCKDOWN,
   EVENT_OVER,
   EVENT_PICKUP,
+  EVENT_SMOKE,
   EVENT_WIN,
   SCREEN_CLEAR,
   SCREEN_OVER,
@@ -40,6 +42,7 @@ import {
   soundLaser,
   soundLockdown,
   soundPickup,
+  soundSmoke,
   soundWin,
   stopAlarmHum,
   toggleMute,
@@ -156,6 +159,7 @@ function runGame() {
   function playSound(events) {
     if (events & EVENT_PICKUP) soundPickup(100);
     if (events & EVENT_COIN) soundCoin();
+    if (events & EVENT_SMOKE) soundSmoke();
     if (events & EVENT_CHASE) soundChase();
     if (events & EVENT_LASER) soundLaser();
     if (events & EVENT_CAUGHT) soundCaught();
@@ -169,7 +173,7 @@ function runGame() {
       world.step(STEP, { x: 0, y: 0 }, false, null, true);
       return;
     }
-    const events = world.step(STEP, input.move(), input.sneak(), input.takeClick(), false);
+    const events = world.step(STEP, input.move(), input.sneak(), input.takeClick(), false, input.takeSmoke());
     playSound(events);
     if (world.state.alarm > prevAlarm && world.state.alarm > 0.5 && Math.random() < 0.06) soundAlarmTick();
     prevAlarm = world.state.alarm;

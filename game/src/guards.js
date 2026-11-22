@@ -4,6 +4,7 @@
 // cools while hidden; a full meter flips the guard to chase.
 import { GUARD, PLAYER, TILE } from './config.js';
 import { inCone, sightStrength, tileCenter } from './vision.js';
+import { smokeBlocksSight } from './smoke.js';
 import { isSolidTile, tileAt } from './levels.js';
 
 export const GUARD_PATROL = 'patrol';
@@ -98,7 +99,8 @@ function repath(guard, grid, gx, gy) {
 export function updateGuard(guard, dt, sense) {
   const { grid, player } = sense;
   const dist = Math.hypot(player.x - guard.x, player.y - guard.y);
-  const seen = inCone(grid, guard.x, guard.y, guard.dir, GUARD.halfAngle, GUARD.viewRange, player.x, player.y, player.hidden);
+  const seen = inCone(grid, guard.x, guard.y, guard.dir, GUARD.halfAngle, GUARD.viewRange, player.x, player.y, player.hidden)
+    && !smokeBlocksSight(sense.smokes, guard.x, guard.y, player.x, player.y);
 
   if (seen) {
     const rate = GUARD.spotRateFar + (GUARD.spotRateNear - GUARD.spotRateFar) * sightStrength(GUARD.viewRange, dist);

@@ -1,12 +1,14 @@
 // Keyboard and mouse input. Held keys give a steering vector; one-shot presses
-// (start, pause, mute) are queued as bit flags and taken once by the loop, so a
-// press between two frames is never lost and never counted twice. A mouse click
-// is a coin toss: the canvas point it lands on is queued for the world.
+// (start, pause, mute, smoke) are queued as bit flags and taken once by the loop,
+// so a press between two frames is never lost and never counted twice. A mouse
+// click is a coin toss: the canvas point it lands on is queued for the world.
+// E drops a smoke cloud (see smoke.js).
 import { FIELD } from './config.js';
 
 export const ACTION_CONFIRM = 1;
 export const ACTION_PAUSE = 2;
 export const ACTION_MUTE = 4;
+export const ACTION_SMOKE = 8;
 
 const UP = new Set(['ArrowUp', 'KeyW']);
 const DOWN = new Set(['ArrowDown', 'KeyS']);
@@ -16,11 +18,13 @@ const SNEAK = new Set(['ShiftLeft', 'ShiftRight']);
 const CONFIRM = new Set(['Space', 'Enter']);
 const PAUSE = new Set(['KeyP', 'Escape']);
 const MUTE = new Set(['KeyM']);
+const SMOKE_KEY = new Set(['KeyE']);
 
 export function createInput(canvas) {
   const keys = new Set();
   let actions = 0;
   let click = null;
+  let smoke = false;
 
   window.addEventListener('keydown', (event) => {
     if (UP.has(event.code) || DOWN.has(event.code) || LEFT.has(event.code) || RIGHT.has(event.code) || SNEAK.has(event.code)) {
@@ -34,6 +38,8 @@ export function createInput(canvas) {
       event.preventDefault();
     } else if (MUTE.has(event.code)) {
       if (!event.repeat) actions |= ACTION_MUTE;
+    } else if (SMOKE_KEY.has(event.code)) {
+      if (!event.repeat) smoke = true;
     }
   });
   window.addEventListener('keyup', (event) => {
@@ -77,6 +83,12 @@ export function createInput(canvas) {
       const point = click;
       click = null;
       return point;
+    },
+    /** True once when E was pressed since the last call: drop a smoke cloud. */
+    takeSmoke() {
+      const pressed = smoke;
+      smoke = false;
+      return pressed;
     },
     /** Test hooks: pretend keys are held, and queue a click, without a browser. */
     _test: {

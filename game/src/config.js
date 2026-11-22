@@ -57,6 +57,15 @@ export const COIN = {
   landRadius: 10,
 };
 
+/** Smoke: the thief's second tool. E drops a cloud that blinds every cone for
+ *  a few seconds — but each cloud costs $50 of score, and a floor carries 2. */
+export const SMOKE = {
+  perFloor: 2,
+  radius: 3.4 * TILE,
+  duration: 5, // seconds a cloud hangs in the air
+  cost: 50, // dollars of score per cloud
+};
+
 export const LOOT_VALUES = { painting: 100, gold: 150, gem: 200, crown: 500 };
 
 export const SCORE = {
@@ -85,17 +94,17 @@ export const PALETTE = {
   player: '#e8e6f0',
   playerSneak: '#b9b4d6',
   guard: '#ff6b5e',
-  guardCone: 'rgba(255, 107, 94, 0.20)',
-  guardConeHot: 'rgba(255, 107, 94, 0.38)',
+  guardCone: 'rgba(255, 107, 94, 0.28)',
+  guardConeHot: 'rgba(255, 107, 94, 0.46)',
   camera: '#ffb020',
-  cameraCone: 'rgba(255, 176, 32, 0.16)',
+  cameraCone: 'rgba(255, 176, 32, 0.30)',
   laser: '#ff3b5c',
   laserOff: 'rgba(255, 59, 92, 0.18)',
   exit: '#3ddc84',
   exitLocked: '#5a5470',
   alarm: '#ff3b5c',
   alarmCalm: '#3ddc84',
-  panel: '#171223',
+  panel: 'rgba(23, 18, 35, 0.93)',
   panelEdge: '#3a2f52',
   text: '#f2eefc',
   muted: '#9a90b8',

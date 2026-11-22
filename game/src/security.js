@@ -4,16 +4,18 @@
 // and off — cross it while it is live and the alarm jumps.
 import { CAMERA, LASER, TILE } from './config.js';
 import { inCone, tileCenter } from './vision.js';
+import { smokeBlocksSight } from './smoke.js';
 
 export function createCamera(def) {
   const c = tileCenter(def.x, def.y);
   return { x: c.x, y: c.y, dir: def.dir, baseDir: def.dir, sweep: def.sweep, phase: 0, seeing: false };
 }
 
-export function updateCamera(camera, dt, grid, player) {
+export function updateCamera(camera, dt, grid, player, smokes) {
   camera.phase += dt * CAMERA.sweepSpeed;
   camera.dir = camera.baseDir + Math.sin(camera.phase) * camera.sweep;
-  camera.seeing = inCone(grid, camera.x, camera.y, camera.dir, CAMERA.halfAngle, CAMERA.viewRange, player.x, player.y, player.hidden);
+  camera.seeing = inCone(grid, camera.x, camera.y, camera.dir, CAMERA.halfAngle, CAMERA.viewRange, player.x, player.y, player.hidden)
+    && !smokeBlocksSight(smokes, camera.x, camera.y, player.x, player.y);
   return camera.seeing;
 }
 

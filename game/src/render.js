@@ -101,10 +101,11 @@ export function createRenderer(canvas) {
       const { x, y } = item;
       context.save();
       context.translate(x, y);
-      // A soft glow so loot reads at a glance, even shrunk.
-      context.fillStyle = 'rgba(242, 201, 76, 0.12)';
+      // A soft glow so loot reads at a glance, even shrunk: a pulsing halo.
+      const pulse = 1 + 0.12 * Math.sin(state.time * 3 + item.x * 0.05);
+      context.fillStyle = 'rgba(242, 201, 76, 0.20)';
       context.beginPath();
-      context.arc(0, 0, 24, 0, Math.PI * 2);
+      context.arc(0, 0, 30 * pulse, 0, Math.PI * 2);
       context.fill();
       if (item.kind === 'painting') {
         context.fillStyle = PALETTE.lootPainting;
@@ -221,6 +222,21 @@ export function createRenderer(canvas) {
     }
   }
 
+  function drawSmoke(state) {
+    for (const cloud of state.smokes) {
+      const fade = 1 - cloud.age / cloud.duration;
+      context.fillStyle = `rgba(178, 172, 196, ${0.34 * fade})`;
+      context.beginPath();
+      context.arc(cloud.x, cloud.y, cloud.radius, 0, Math.PI * 2);
+      context.fill();
+      context.fillStyle = `rgba(226, 222, 240, ${0.22 * fade})`;
+      context.beginPath();
+      context.arc(cloud.x - cloud.radius * 0.3, cloud.y - cloud.radius * 0.2, cloud.radius * 0.55, 0, Math.PI * 2);
+      context.arc(cloud.x + cloud.radius * 0.35, cloud.y + cloud.radius * 0.25, cloud.radius * 0.45, 0, Math.PI * 2);
+      context.fill();
+    }
+  }
+
   function drawCones(state) {
     for (const camera of state.cameras) {
       fillPoly(conePolygon(state.grid, camera.x, camera.y, camera.dir, CAMERA.halfAngle, CAMERA.viewRange), PALETTE.cameraCone);
@@ -267,11 +283,18 @@ export function createRenderer(canvas) {
       context.save();
       context.translate(camera.x, camera.y);
       context.rotate(camera.dir);
+      // A wall-mounted unit that reads as a camera at a glance: a bright body,
+      // a dark lens, and a thin amber ring around it.
+      context.strokeStyle = camera.seeing ? '#ff3b5c' : PALETTE.camera;
+      context.lineWidth = 2;
+      context.beginPath();
+      context.arc(2, 0, 11, 0, Math.PI * 2);
+      context.stroke();
       context.fillStyle = camera.seeing ? '#ff3b5c' : PALETTE.camera;
-      context.fillRect(-4, -6, 12, 12);
+      context.fillRect(-5, -7, 14, 14);
       context.fillStyle = '#1a1426';
       context.beginPath();
-      context.arc(9, 0, 3.5, 0, Math.PI * 2);
+      context.arc(11, 0, 4, 0, Math.PI * 2);
       context.fill();
       context.restore();
     }
@@ -339,7 +362,7 @@ export function createRenderer(canvas) {
       context.arc(FIELD.width - 24 - i * 22, 38, 6, 0, Math.PI * 2);
       context.fill();
     }
-    text(`Coins ${state.coinsLeft}`, FIELD.width - 16 - LIVES * 22 - 12, 30, 12, PALETTE.muted, 'right', 'top');
+    text(`Coins ${state.coinsLeft} · Smoke ${state.smokesLeft}`, FIELD.width - 16 - LIVES * 22 - 12, 30, 12, PALETTE.muted, 'right', 'top');
   }
 
   function drawPanel(title, lines, prompt, accent) {
@@ -366,6 +389,7 @@ export function createRenderer(canvas) {
     'Cameras raise the alarm. Lasers blink.',
     'Move WASD / arrows. Hold Shift to sneak.',
     'Click to toss a coin and lure a guard.',
+    'E drops a smoke cloud ($50) that blinds every cone.',
     'Loud steps are heard. At 100% alarm the building',
     'locks down and you lose a life.',
     '',
@@ -383,6 +407,7 @@ export function createRenderer(canvas) {
     drawCoins(state);
     drawLasers(state);
     drawCones(state);
+    drawSmoke(state);
     drawGuards(state);
     drawCameras(state);
     drawPlayer(state);

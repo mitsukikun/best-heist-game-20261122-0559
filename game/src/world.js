@@ -3,11 +3,12 @@
 // lives and the score. step() advances one fixed step and returns what happened
 // as bit flags, so the caller can react (sound, screens) without the world
 // knowing about screens or sound. Nothing here allocates after createWorld.
-import { ALARM, CAMERA, COIN, LIVES, LOOT_VALUES, PLAYER, SCORE, TILE } from './config.js';
+import { ALARM, CAMERA, COIN, LIVES, LOOT_VALUES, PLAYER, SCORE, SMOKE, TILE } from './config.js';
 import { LEVELS, parseLevel, tileAt } from './levels.js';
 import { createGuard, resetGuard, updateGuard } from './guards.js';
 import { createCamera, createLaser, laserTrips, updateCamera, updateLaser } from './security.js';
 import { createPlayer, updatePlayer } from './player.js';
+import { createSmokeCloud, updateSmokeClouds } from './smoke.js';
 import { tileCenter } from './vision.js';
 
 export const EVENT_PICKUP = 1;
@@ -20,6 +21,7 @@ export const EVENT_WIN = 64;
 export const EVENT_LASER = 128;
 export const EVENT_CHASE = 256;
 export const EVENT_ALARM = 512;
+export const EVENT_SMOKE = 1024;
 
 export const SCREEN_TITLE = 'title';
 export const SCREEN_PLAY = 'play';
@@ -43,6 +45,8 @@ export function createWorld(random) {
     lasers: [],
     loot: [],
     coins: [],
+    smokes: [],
+    smokesLeft: SMOKE.perFloor,
     dollars: 0,
     quota: 0,
     alarm: 0,
@@ -77,6 +81,8 @@ export function createWorld(random) {
       return { x: c.x, y: c.y, tx: item.x, ty: item.y, kind: item.kind, value: LOOT_VALUES[item.kind], taken: false };
     });
     state.coins = [];
+    state.smokes = [];
+    state.smokesLeft = SMOKE.perFloor;
     state.quota = def.quota;
     state.dollars = 0;
     state.alarm = 0;
@@ -137,11 +143,12 @@ export function createWorld(random) {
 
   /**
    * One fixed step. `move` is {x, y} in -1..1, `sneak` is Shift, `click` is a
-   * canvas point to toss a coin at (or null). With `harmless` set (the title
-   * screen's backdrop) the world idles: guards patrol, nothing scores, nothing
-   * catches. Returns the EVENT_* flags of what happened this step.
+   * canvas point to toss a coin at (or null), `smoke` is E pressed this step.
+   * With `harmless` set (the title screen's backdrop) the world idles: guards
+   * patrol, nothing scores, nothing catches. Returns the EVENT_* flags of what
+   * happened this step.
    */
-  function step(dt, move, sneak, click, harmless) {
+  function step(dt, move, sneak, click, harmless, smoke) {
     let events = 0;
     state.time += dt;
     if (state.screen !== SCREEN_PLAY && !harmless) return 0;
@@ -178,6 +185,16 @@ export function createWorld(random) {
     for (const coin of state.coins) coin.age += dt;
     state.coins = state.coins.filter((coin) => coin.age < 6);
 
+    // Smoke: E drops a cloud at the thief's feet for $50 of score. It blinds
+    // every cone while it hangs — the second tool, spent, not spammed.
+    if (smoke && state.smokesLeft > 0) {
+      state.smokes.push(createSmokeCloud(player.x, player.y));
+      state.smokesLeft -= 1;
+      state.score = Math.max(0, state.score - SMOKE.cost);
+      events |= EVENT_SMOKE;
+    }
+    state.smokes = updateSmokeClouds(state.smokes, dt);
+
     // Loot: walk over it to pocket it.
     for (const item of state.loot) {
       if (item.taken) continue;
@@ -189,10 +206,11 @@ export function createWorld(random) {
       }
     }
 
-    // Guards: sight, suspicion, chase, catch.
+    // Guards: sight, suspicion, chase, catch. Smoke between eye and thief
+    // breaks the sight, so a clouded corridor can be crossed unseen.
     let anySeeing = false;
     for (const guard of state.guards) {
-      const result = updateGuard(guard, dt, { grid: state.grid, player, noise });
+      const result = updateGuard(guard, dt, { grid: state.grid, player, noise, smokes: state.smokes });
       if (result === 'caught') {
         state.alarm = Math.min(1, state.alarm + ALARM.catchPenalty);
         state.floorSpotted = true;
@@ -209,9 +227,10 @@ export function createWorld(random) {
       if (guard.state === 'chase') anySeeing = true;
     }
 
-    // Cameras feed the alarm while they hold the thief in view.
+    // Cameras feed the alarm while they hold the thief in view — unless smoke
+    // sits between the lens and the thief.
     for (const camera of state.cameras) {
-      if (updateCamera(camera, dt, state.grid, player)) {
+      if (updateCamera(camera, dt, state.grid, player, state.smokes)) {
         state.alarm = Math.min(1, state.alarm + CAMERA.alarmRate * dt);
         anySeeing = true;
         state.floorSpotted = true;

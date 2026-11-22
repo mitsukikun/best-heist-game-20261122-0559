@@ -10,7 +10,8 @@ import { inCone, tileCenter } from './vision.js';
 import { CAMERA, GUARD } from './config.js';
 import { isSolidTile, tileAt } from './levels.js';
 
-const START_SECONDS = 5;
+const START_SECONDS = 8;
+const CHASE_LIMIT_SECONDS = 60;
 const PLAY_SECONDS = 12;
 const END_LIMIT_SECONDS = 180;
 
@@ -80,8 +81,10 @@ function nearestShadow(state) {
   return best;
 }
 
-/** The autopilot: one step of steering for the world, as {move, sneak}. */
-function autopilot(state, memory) {
+/** The autopilot: one step of steering for the world, as {move, sneak}. With
+ *  `reckless` set it walks the shortest path without sneaking and without
+ *  weighing danger — straight through the cones, for staging a chase. */
+function autopilot(state, memory, reckless = false) {
   const player = state.player;
   const px = Math.floor(player.x / TILE);
   const py = Math.floor(player.y / TILE);
@@ -119,7 +122,11 @@ function autopilot(state, memory) {
 
   memory.repath -= 1;
   if (memory.path === null || memory.repath <= 0) {
-    memory.path = memory.target ? dangerPath(state, px, py, memory.target[0], memory.target[1]) : [];
+    memory.path = memory.target
+      ? reckless
+        ? findPath(state.grid, px, py, memory.target[0], memory.target[1])
+        : dangerPath(state, px, py, memory.target[0], memory.target[1])
+      : [];
     if (memory.path.length > 0) memory.path.shift();
     memory.repath = 30;
   }
@@ -136,24 +143,62 @@ function autopilot(state, memory) {
     memory.path.shift();
     return { move: { x: 0, y: 0 }, sneak: false };
   }
-  const sneak = tileDanger(state, tx, ty) > 0 || tileDanger(state, px, py) > 0;
+  const sneak = reckless ? false : tileDanger(state, tx, ty) > 0 || tileDanger(state, px, py) > 0;
   return { move: { x: dx / dist, y: dy / dist }, sneak };
 }
 
 /**
- * Set `world` to the named scene (start, play or end; any other name is start)
- * and return the screen to draw over it and the best score to show.
+ * Set `world` to the named scene and return the screen to draw over it and
+ * the best score to show. Every scene is a real run of the game's own rules,
+ * steered by the autopilot — never a posed frame.
+ *
+ * - start: the cover, 8 seconds into a real run — the thief mid-room with
+ *   loot pocketed, a guard cone sweeping, a camera watching and the alarm
+ *   meter alive, so one frame shows the whole heist at a glance.
+ * - chase: the tense frame — run until a guard is onto the thief
+ *   (suspicious or chasing) with the alarm climbing, else a play frame.
+ * - play: 12 seconds in, mid-heist. end: a floor cleared for real.
  */
 export function stageShot(name, world) {
   world.reset();
   world.state.screen = SCREEN_PLAY;
-  if (name !== 'play' && name !== 'end') {
-    world.state.screen = SCREEN_TITLE;
-    for (let index = 0; index < START_SECONDS / STEP; index += 1) world.step(STEP, { x: 0, y: 0 }, false, null, true);
-    return { screen: SCREEN_TITLE, best: 0 };
+  const memory = { target: null, path: null, repath: 0, hideTarget: null };
+  if (name === 'start') {
+    for (let index = 0; index < START_SECONDS / STEP; index += 1) {
+      const steer = autopilot(world.state, memory);
+      const events = world.step(STEP, steer.move, steer.sneak, null, false);
+      if (events & EVENT_OVER) break;
+      if (events & (EVENT_CLEAR | EVENT_WIN)) break;
+    }
+    return { screen: SCREEN_PLAY, best: world.state.score };
+  }
+  if (name === 'chase') {
+    // The tense frame: a reckless pilot walks straight through the cones
+    // until a guard is onto the thief — suspicion past half, or a chase —
+    // then freeze that instant, before the catch. If the pilot gets caught
+    // three times instead, fall back to a play frame.
+    for (let index = 0; index < CHASE_LIMIT_SECONDS / STEP; index += 1) {
+      const steer = autopilot(world.state, memory, true);
+      const events = world.step(STEP, steer.move, steer.sneak, null, false);
+      if (events & EVENT_OVER) break;
+      if (events & (EVENT_CLEAR | EVENT_WIN)) break;
+      const hot = world.state.guards.some((g) => g.state === 'chase' || g.suspicion > 0.9);
+      if (hot) break;
+    }
+    if (world.state.screen === SCREEN_OVER) {
+      world.reset();
+      world.state.screen = SCREEN_PLAY;
+      const fresh = { target: null, path: null, repath: 0, hideTarget: null };
+      for (let index = 0; index < PLAY_SECONDS / STEP; index += 1) {
+        const steer = autopilot(world.state, fresh);
+        const events = world.step(STEP, steer.move, steer.sneak, null, false);
+        if (events & EVENT_OVER) break;
+        if (events & (EVENT_CLEAR | EVENT_WIN)) break;
+      }
+    }
+    return { screen: SCREEN_PLAY, best: world.state.score };
   }
   const limit = name === 'end' ? END_LIMIT_SECONDS : PLAY_SECONDS;
-  const memory = { target: null, path: null, repath: 0, hideTarget: null };
   let cleared = false;
   for (let index = 0; index < limit / STEP; index += 1) {
     const steer = autopilot(world.state, memory);

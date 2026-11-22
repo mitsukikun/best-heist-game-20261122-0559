@@ -5,6 +5,10 @@
 // screenshots/ from beside this file to /output and writes /output/dossier.json,
 // the summary the judge reads, with the vendored make.fun library.
 //
+// Round 5 rebuild (2026-11-22): a smoke-cloud tool (E, $50 a cloud, blinds
+// every vision cone), a live-play cover shot, a chase shot, and stronger cone
+// and loot colours so the heist reads at a glance when the judge shrinks it.
+//
 // Serve it locally with `node serve.ts`, then open http://localhost:8080.
 // Outside the grader's container, MAKEFUN_OUTPUT_DIR stands in for /output:
 //   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
